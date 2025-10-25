@@ -1,0 +1,12 @@
+# Go
+bin/
+dist/
+*.out
+# Node/Next.js
+node_modules/
+.next/
+out/
+# OS/editor
+.DS_Store
+.idea/
+.vscode/
