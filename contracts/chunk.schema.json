@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://selfstack.dev/schemas/chunk.schema.json",
+  "title": "Chunk",
+  "type": "object",
+  "required": ["doc_id", "index", "text"],
+  "properties": {
+    "doc_id": { "type": "string", "format": "uuid" },
+    "index": { "type": "integer", "minimum": 0 },
+    "text": { "type": "string" },
+    "embedding": { "type": "array", "items": { "type": "number" } },
+    "metadata": { "type": "object", "additionalProperties": true }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://selfstack.dev/schemas/doc.schema.json",
+  "title": "Doc",
+  "type": "object",
+  "required": ["id", "source", "title", "created_at"],
+  "properties": {
+    "id": { "type": "string", "format": "uuid" },
+    "source": { "type": "string" },
+    "title": { "type": "string" },
+    "text": { "type": "string" },
+    "metadata": { "type": "object", "additionalProperties": true },
+    "created_at": { "type": "string", "format": "date-time" }
+  },
+  "additionalProperties": false
+}

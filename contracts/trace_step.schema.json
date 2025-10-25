@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://selfstack.dev/schemas/trace_step.schema.json",
+  "title": "TraceStep",
+  "type": "object",
+  "required": ["ts", "kind", "message"],
+  "properties": {
+    "ts": { "type": "string", "format": "date-time" },
+    "kind": { "type": "string", "enum": ["ingest", "normalize", "index", "rule", "llm", "action"] },
+    "message": { "type": "string" },
+    "attrs": { "type": "object", "additionalProperties": true }
+  },
+  "additionalProperties": false
+}

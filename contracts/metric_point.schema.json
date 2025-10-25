@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://selfstack.dev/schemas/metric_point.schema.json",
+  "title": "MetricPoint",
+  "type": "object",
+  "required": ["ts", "name", "value"],
+  "properties": {
+    "ts": { "type": "string", "format": "date-time" },
+    "name": { "type": "string" },
+    "value": { "type": "number" },
+    "labels": { "type": "object", "additionalProperties": { "type": "string" } }
+  },
+  "additionalProperties": false
+}

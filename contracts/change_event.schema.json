@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://selfstack.dev/schemas/change_event.schema.json",
+  "title": "ChangeEvent",
+  "type": "object",
+  "required": ["id", "source_id", "ts_observed", "subject"],
+  "properties": {
+    "id": { "type": "string", "format": "uuid" },
+    "source_id": { "type": "string", "format": "uuid" },
+    "ts_observed": { "type": "string", "format": "date-time" },
+    "ts_origin": { "type": "string", "format": "date-time" },
+    "level": { "type": "string" },
+    "topic": { "type": "string" },
+    "subject": { "type": "string" },
+    "body_text": { "type": "string" },
+    "labels": { "type": "array", "items": { "type": "string" } },
+    "hash": { "type": "string" },
+    "metadata": { "type": "object", "additionalProperties": true }
+  },
+  "additionalProperties": false
+}

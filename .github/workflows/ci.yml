@@ -1,0 +1,40 @@
+name: ci
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  go:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22.x'
+
+      - name: Go tidy
+        run: go mod tidy && git diff --exit-code || (echo "::error file=go.mod::Run 'go mod tidy' locally" && exit 1)
+
+      - name: Run formatter (gofmt check)
+        run: |
+          set -e
+          CHANGED=$(gofmt -l . | wc -l)
+          if [ "$CHANGED" -ne 0 ]; then
+            echo "::error ::gofmt found unformatted files. Run 'make fmt'."
+            gofmt -l .
+            exit 1
+          fi
+
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: v1.60.3
+          args: --timeout=3m
+
+      - name: Run unit tests
+        run: go test ./... -count=1
