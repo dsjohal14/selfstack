@@ -1,3 +1,4 @@
+// Package main implements the Selfstack CLI for interacting with the system via command line.
 package main
 
 import "github.com/spf13/cobra"

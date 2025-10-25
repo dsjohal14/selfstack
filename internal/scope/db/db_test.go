@@ -7,7 +7,7 @@ import (
 
 func TestNewInvalidConnection(t *testing.T) {
 	ctx := context.Background()
-	
+
 	// Test with invalid connection string
 	_, err := New(ctx, "invalid://connection")
 	if err == nil {
@@ -20,4 +20,3 @@ func TestDBClose(t *testing.T) {
 	// In integration tests, we would set up a real DB connection
 	t.Skip("requires actual database connection")
 }
-

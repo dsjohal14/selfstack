@@ -32,4 +32,3 @@ func TestBaseConnectorStop(t *testing.T) {
 		t.Errorf("Stop() failed: %v", err)
 	}
 }
-

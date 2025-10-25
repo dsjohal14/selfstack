@@ -45,4 +45,3 @@ func TestMultipleJobs(t *testing.T) {
 		t.Errorf("expected 3 jobs in queue, got %d", q.Count())
 	}
 }
-

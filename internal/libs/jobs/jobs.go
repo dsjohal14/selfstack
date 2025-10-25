@@ -1,3 +1,4 @@
+// Package jobs provides background job queue management and async task processing.
 package jobs
 
 import "time"
@@ -36,4 +37,3 @@ func (q *Queue) Enqueue(id string) *Job {
 func (q *Queue) Count() int {
 	return len(q.jobs)
 }
-

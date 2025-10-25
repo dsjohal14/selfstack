@@ -37,4 +37,3 @@ func TestLogger(t *testing.T) {
 		t.Error("logger should not be disabled")
 	}
 }
-

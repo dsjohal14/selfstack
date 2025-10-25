@@ -1,3 +1,4 @@
+// Package db provides database connection management and query helpers for Selfstack's PostgreSQL storage.
 package db
 
 import (
@@ -37,4 +38,3 @@ func (d *DB) Close() {
 func (d *DB) Pool() *pgxpool.Pool {
 	return d.pool
 }
-

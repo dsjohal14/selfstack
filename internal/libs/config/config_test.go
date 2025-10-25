@@ -23,11 +23,11 @@ func TestLoad(t *testing.T) {
 
 func TestLoadWithEnv(t *testing.T) {
 	// Test with environment variables
-	os.Setenv("API_PORT", "9000")
-	os.Setenv("LOG_LEVEL", "debug")
+	_ = os.Setenv("API_PORT", "9000")
+	_ = os.Setenv("LOG_LEVEL", "debug")
 	defer func() {
-		os.Unsetenv("API_PORT")
-		os.Unsetenv("LOG_LEVEL")
+		_ = os.Unsetenv("API_PORT")
+		_ = os.Unsetenv("LOG_LEVEL")
 	}()
 
 	cfg, err := Load()
@@ -43,4 +43,3 @@ func TestLoadWithEnv(t *testing.T) {
 		t.Errorf("expected LogLevel=debug, got %s", cfg.LogLevel)
 	}
 }
-

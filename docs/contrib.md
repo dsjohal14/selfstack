@@ -15,10 +15,23 @@
 ## Commit style
 - Conventional commits (e.g., `feat(scope): add events repo`, `chore(ci): enable lint`).
 
-## Pre-push checklist
-- `make fmt && make tidy`
-- `golangci-lint run`
-- `go test ./...`
+## Pre-commit checklist
+Run all checks before committing:
+```bash
+make precommit
+```
+
+This runs (in order):
+1. `make fmt` - Format code with gofmt
+2. `make tidy` - Tidy Go modules
+3. `make lint` - Run golangci-lint
+4. `make test` - Run all tests
+
+Or run individual commands:
+- `make fmt` - Format code
+- `make tidy` - Tidy modules
+- `make lint` - Run linter
+- `make test` - Run tests
 
 ## Tooling
 - Install golangci-lint: `brew install golangci-lint` or `go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest`

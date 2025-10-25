@@ -22,4 +22,3 @@ func TestNewBatch(t *testing.T) {
 		})
 	}
 }
-

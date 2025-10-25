@@ -1,3 +1,4 @@
+// Package search provides full-text search capabilities for Selfstack.
 package search
 
 // Engine represents a search backend
@@ -27,7 +28,7 @@ func (e *MemoryEngine) Index(docID string, content string) error {
 // Search performs a simple substring search
 func (e *MemoryEngine) Search(query string, limit int) ([]string, error) {
 	var results []string
-	
+
 	for docID, content := range e.docs {
 		if contains(content, query) {
 			results = append(results, docID)
@@ -36,7 +37,7 @@ func (e *MemoryEngine) Search(query string, limit int) ([]string, error) {
 			}
 		}
 	}
-	
+
 	return results, nil
 }
 
@@ -52,4 +53,3 @@ func findSubstring(s, substr string) bool {
 	}
 	return false
 }
-

@@ -1,3 +1,4 @@
+// Package accel provides utilities for accelerated batch processing.
 package accel
 
 // Batch represents a batch processing helper
@@ -17,4 +18,3 @@ func NewBatch(size int) *Batch {
 func (b *Batch) Size() int {
 	return b.size
 }
-

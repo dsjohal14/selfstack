@@ -1,3 +1,4 @@
+// Package streamlite provides data ingestion connectors for streaming changes from various sources.
 package streamlite
 
 import "time"
@@ -37,4 +38,3 @@ func (c *BaseConnector) Start() error {
 func (c *BaseConnector) Stop() error {
 	return nil
 }
-

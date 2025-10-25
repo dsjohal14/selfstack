@@ -27,4 +27,3 @@ func TestEnableDisable(t *testing.T) {
 		t.Error("relay should be enabled after Enable()")
 	}
 }
-

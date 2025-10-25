@@ -1,3 +1,4 @@
+// Package config provides application configuration management from environment variables.
 package config
 
 import (
@@ -33,4 +34,3 @@ func getEnv(key, fallback string) string {
 	}
 	return fallback
 }
-

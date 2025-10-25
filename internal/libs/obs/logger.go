@@ -1,3 +1,4 @@
+// Package obs provides observability utilities including structured logging, metrics, and tracing.
 package obs
 
 import (
@@ -29,4 +30,3 @@ func InitLogger(level string) {
 func Logger(component string) zerolog.Logger {
 	return log.With().Str("component", component).Logger()
 }
-

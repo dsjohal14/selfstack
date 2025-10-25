@@ -1,3 +1,4 @@
+// Package relay handles AI processing, summarization, tagging, and automation rules.
 package relay
 
 // Relay handles AI processing and automation
@@ -26,4 +27,3 @@ func (r *Relay) Enable() {
 func (r *Relay) Disable() {
 	r.enabled = false
 }
-
