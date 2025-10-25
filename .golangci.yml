@@ -13,6 +13,3 @@ linters:
     - gocritic
     - revive
     - unused
-
-issues:
-  exclude-use-default: false
