@@ -1,0 +1,32 @@
+version: "3.9"
+services:
+  db:
+    image: postgres:16
+    container_name: selfstack-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: selfstack
+      POSTGRES_PASSWORD: selfstack
+      POSTGRES_DB: selfstack
+    ports:
+      - "5432:5432"
+    volumes:
+      - selfstack_pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U selfstack -d selfstack"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # typesense (optional; plug later)
+  # search:
+  #   image: typesense/typesense:0.25.2
+  #   environment:
+  #     TYPESENSE_API_KEY: devkey
+  #   command: ["--data-dir=/data", "--api-key=devkey", "--enable-cors"]
+  #   ports: ["8108:8108"]
+  #   volumes: [ "selfstack_ts:/data" ]
+
+volumes:
+  selfstack_pg:
+  # selfstack_ts:
