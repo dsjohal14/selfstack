@@ -10,6 +10,7 @@ import (
 type Config struct {
 	DatabaseURL string
 	APIPort     string
+	APIHost     string
 	LogLevel    string
 }
 
@@ -18,6 +19,7 @@ func Load() (*Config, error) {
 	cfg := &Config{
 		DatabaseURL: getEnv("DATABASE_URL", "postgres://selfstack:selfstack@localhost:5432/selfstack?sslmode=disable"),
 		APIPort:     getEnv("API_PORT", "8080"),
+		APIHost:     getEnv("API_HOST", "0.0.0.0"),
 		LogLevel:    getEnv("LOG_LEVEL", "info"),
 	}
 

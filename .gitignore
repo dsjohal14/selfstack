@@ -9,6 +9,9 @@ cover.out
 .env
 .env.local
 
+# Cursor AI
+.cursor/
+
 # Node / Next.js
 node_modules/
 .next/
