@@ -22,3 +22,6 @@ out/
 .idea/
 .vscode/
 *.swp
+
+# Claude Code
+CLAUDE.md
