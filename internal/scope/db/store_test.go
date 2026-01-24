@@ -251,3 +251,61 @@ func TestUpdateExistingDocument(t *testing.T) {
 		t.Errorf("expected 'Updated Title', got %s", results[0].Title)
 	}
 }
+
+func TestLoadMetadataWithoutVectors(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create store, add doc, flush, then delete vectors.bin
+	{
+		store, err := NewStore(tmpDir)
+		if err != nil {
+			t.Fatalf("NewStore failed: %v", err)
+		}
+
+		doc := Document{
+			ID:        "doc1",
+			Source:    "test",
+			Title:     "Test Document",
+			Text:      "test content for embedding",
+			CreatedAt: time.Now(),
+			Embedding: relay.DeterministicEmbed("test content for embedding"),
+		}
+		_ = store.Add(doc)
+		_ = store.Flush()
+		_ = store.Close()
+	}
+
+	// Delete vectors.bin to simulate corrupted state
+	vecPath := filepath.Join(tmpDir, "vectors.bin")
+	if err := os.Remove(vecPath); err != nil {
+		t.Fatalf("failed to remove vectors.bin: %v", err)
+	}
+
+	// Reload store - should regenerate embeddings
+	store, err := NewStore(tmpDir)
+	if err != nil {
+		t.Fatalf("NewStore (reload) failed: %v", err)
+	}
+	defer func() { _ = store.Close() }()
+
+	if store.Count() != 1 {
+		t.Errorf("expected 1 doc, got %d", store.Count())
+	}
+
+	// Search should work with regenerated embeddings
+	query := relay.DeterministicEmbed("test content for embedding")
+	results := store.Search(query, 1)
+
+	if len(results) == 0 {
+		t.Fatal("no results found after embedding regeneration")
+	}
+
+	if results[0].DocID != "doc1" {
+		t.Errorf("expected doc1, got %s", results[0].DocID)
+	}
+
+	// Score should be high (exact match with regenerated embedding)
+	if results[0].Score < 0.99 {
+		t.Errorf("expected high score after regeneration, got %f", results[0].Score)
+	}
+}

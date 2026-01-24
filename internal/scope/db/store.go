@@ -200,12 +200,29 @@ func (s *Store) writeVectors() error {
 
 // load reads store from disk
 func (s *Store) load() error {
-	if err := s.loadMetadata(); err != nil {
-		return err
+	metaErr := s.loadMetadata()
+	if metaErr != nil {
+		if os.IsNotExist(metaErr) {
+			// No metadata file means fresh store
+			return metaErr
+		}
+		return metaErr
 	}
-	if err := s.loadVectors(); err != nil {
-		return err
+
+	// Metadata loaded successfully, now load vectors
+	vecErr := s.loadVectors()
+	if vecErr != nil {
+		if os.IsNotExist(vecErr) && len(s.docs) > 0 {
+			// Metadata exists but vectors don't - regenerate embeddings
+			for i := range s.docs {
+				s.docs[i].Embedding = relay.DeterministicEmbed(s.docs[i].Text)
+			}
+			s.modified = true // Mark for flush to write vectors
+			return nil
+		}
+		return vecErr
 	}
+
 	return nil
 }
 
