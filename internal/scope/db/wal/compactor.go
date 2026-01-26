@@ -276,14 +276,22 @@ func (c *Compactor) compactSegments(ctx context.Context, segments []SegmentInfo)
 		rollbackToSealed()
 		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
-	defer func() { _ = tx.Rollback(ctx) }()
+
+	// Helper to cleanup on transaction errors - MUST rollback tx first to release
+	// row locks before rollbackToSealed() tries to update on a separate connection
+	cleanupTxError := func(filePath string) {
+		_ = tx.Rollback(ctx)
+		if filePath != "" {
+			_ = os.Remove(filePath)
+		}
+		rollbackToSealed()
+	}
 
 	// Archive old segments in transaction (will be committed atomically)
 	for _, seg := range segments {
 		_, err := tx.Exec(ctx, "UPDATE wal_segments SET status = 'archived' WHERE segment_id = $1", seg.SegmentID)
 		if err != nil {
-			_ = os.Remove(tmpPath)
-			rollbackToSealed()
+			cleanupTxError(tmpPath)
 			return fmt.Errorf("failed to archive segment %d: %w", seg.SegmentID, err)
 		}
 	}
@@ -291,8 +299,7 @@ func (c *Compactor) compactSegments(ctx context.Context, segments []SegmentInfo)
 	// Move temp file to final location
 	finalPath := filepath.Join(c.segmentDir, SegmentFilename(newSegmentID))
 	if err := os.Rename(tmpPath, finalPath); err != nil {
-		_ = os.Remove(tmpPath)
-		rollbackToSealed()
+		cleanupTxError(tmpPath)
 		return fmt.Errorf("failed to move compacted segment: %w", err)
 	}
 
@@ -302,13 +309,12 @@ func (c *Compactor) compactSegments(ctx context.Context, segments []SegmentInfo)
 		VALUES ($1, $2, $3, $4, $5, $6, 'sealed', $7, NOW())
 	`, newSegmentID, finalPath, sizeBytes, len(sortedRecords), minLSN, maxLSN, checksum)
 	if err != nil {
-		// Transaction will rollback, but file was already moved - delete it
-		_ = os.Remove(finalPath)
-		rollbackToSealed()
+		cleanupTxError(finalPath)
 		return fmt.Errorf("failed to register compacted segment: %w", err)
 	}
 
 	if err := tx.Commit(ctx); err != nil {
+		// Commit failed - tx already rolled back by driver, just cleanup
 		_ = os.Remove(finalPath)
 		rollbackToSealed()
 		return fmt.Errorf("failed to commit transaction: %w", err)
