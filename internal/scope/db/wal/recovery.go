@@ -286,9 +286,12 @@ func (r *RecoveryManager) RecoverWithoutManifest(ctx context.Context) (*Recovery
 	for _, segPath := range segments {
 		iter, err := NewSegmentIterator(segPath)
 		if err != nil {
-			return nil, fmt.Errorf("failed to open segment %s: %w", segPath, err)
+			// Can't open segment - log and continue to next
+			fmt.Printf("warning: failed to open segment %s: %v\n", segPath, err)
+			continue
 		}
 
+		segmentCorrupt := false
 		for iter.Next() {
 			rec := iter.Record()
 			stats.RecordsLoaded++
@@ -299,6 +302,7 @@ func (r *RecoveryManager) RecoverWithoutManifest(ctx context.Context) (*Recovery
 
 			if err := r.applyRecord(rec, docLSN); err != nil {
 				stats.CorruptRecords++
+				// Continue trying to read more records (corruption may be isolated)
 				continue
 			}
 
@@ -308,13 +312,19 @@ func (r *RecoveryManager) RecoverWithoutManifest(ctx context.Context) (*Recovery
 		}
 
 		if err := iter.Err(); err != nil {
-			_ = iter.Close()
-			// Log warning but continue to next segment
-			fmt.Printf("warning: error reading segment %s: %v\n", segPath, err)
-			continue
+			// Iterator error - likely corruption at current position
+			// For tail corruption (crash scenario), this is expected
+			// For mid-segment corruption, we've already recovered what we could
+			stats.CorruptRecords++
+			segmentCorrupt = true
+			fmt.Printf("warning: error reading segment %s (recovered %d records before error): %v\n",
+				segPath, stats.RecordsLoaded, err)
 		}
 		_ = iter.Close()
-		stats.SegmentsLoaded++
+
+		if !segmentCorrupt {
+			stats.SegmentsLoaded++
+		}
 	}
 
 	stats.RecoveryTime = time.Since(startTime)
