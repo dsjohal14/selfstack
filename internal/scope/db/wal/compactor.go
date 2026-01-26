@@ -159,9 +159,13 @@ func (c *Compactor) compactSegments(ctx context.Context, segments []SegmentInfo)
 	}
 
 	// Helper to rollback segments to sealed status on any error
+	// Uses background context with timeout to ensure rollback completes even if
+	// the parent context is canceled (e.g., during shutdown)
 	rollbackToSealed := func() {
+		rollbackCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
 		for _, seg := range segments {
-			_ = c.manifest.UpdateSegmentStatus(ctx, seg.SegmentID, SegmentStatusSealed)
+			_ = c.manifest.UpdateSegmentStatus(rollbackCtx, seg.SegmentID, SegmentStatusSealed)
 		}
 	}
 
@@ -279,8 +283,11 @@ func (c *Compactor) compactSegments(ctx context.Context, segments []SegmentInfo)
 
 	// Helper to cleanup on transaction errors - MUST rollback tx first to release
 	// row locks before rollbackToSealed() tries to update on a separate connection
+	// Uses background context to ensure rollback completes even if ctx is canceled
 	cleanupTxError := func(filePath string) {
-		_ = tx.Rollback(ctx)
+		rollbackCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_ = tx.Rollback(rollbackCtx)
 		if filePath != "" {
 			_ = os.Remove(filePath)
 		}
