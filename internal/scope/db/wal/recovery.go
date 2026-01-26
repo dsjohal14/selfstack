@@ -292,9 +292,11 @@ func (r *RecoveryManager) RecoverWithoutManifest(ctx context.Context) (*Recovery
 		}
 
 		segmentCorrupt := false
+		segmentRecords := 0 // Per-segment count for accurate logging
 		for iter.Next() {
 			rec := iter.Record()
 			stats.RecordsLoaded++
+			segmentRecords++
 
 			if rec.LSN > stats.MaxLSN {
 				stats.MaxLSN = rec.LSN
@@ -314,11 +316,11 @@ func (r *RecoveryManager) RecoverWithoutManifest(ctx context.Context) (*Recovery
 		if err := iter.Err(); err != nil {
 			// Iterator error - likely corruption at current position
 			// For tail corruption (crash scenario), this is expected
-			// For mid-segment corruption, we've already recovered what we could
+			// For mid-segment CRC corruption, iterator stops here (no magic-byte resync)
 			stats.CorruptRecords++
 			segmentCorrupt = true
-			fmt.Printf("warning: error reading segment %s (recovered %d records before error): %v\n",
-				segPath, stats.RecordsLoaded, err)
+			fmt.Printf("warning: error reading segment %s (recovered %d records from this segment before error): %v\n",
+				segPath, segmentRecords, err)
 		}
 		_ = iter.Close()
 
