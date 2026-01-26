@@ -4,6 +4,8 @@ dist/
 *.out
 /tmp
 cover.out
+/api
+/worker
 
 # Environment
 .env
@@ -25,3 +27,4 @@ out/
 
 # Claude Code
 CLAUDE.md
+.claude/
