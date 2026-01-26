@@ -40,6 +40,8 @@ func ImmediateSyncPolicy() SyncPolicy {
 }
 
 // WALWriter is a thread-safe Write-Ahead Log writer
+//
+//nolint:revive // WALWriter name is intentional for clarity
 type WALWriter struct {
 	mu         sync.Mutex    // Serialize all writes
 	dir        string        // WAL directory
@@ -62,6 +64,8 @@ type WALWriter struct {
 }
 
 // WALWriterOption configures a WALWriter
+//
+//nolint:revive // WALWriterOption name is intentional for clarity
 type WALWriterOption func(*WALWriter)
 
 // WithSyncPolicy sets the sync policy
@@ -181,8 +185,8 @@ func (w *WALWriter) findLastValidOffset(path string) (int64, error) {
 	}
 	defer func() { _ = f.Close() }()
 
-	var lastValidOffset int64 = 0
-	var offset int64 = 0
+	var lastValidOffset int64
+	var offset int64
 
 	for {
 		// Read header using io.ReadFull to handle short reads correctly

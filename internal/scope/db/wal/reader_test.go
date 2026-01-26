@@ -21,7 +21,7 @@ func TestSegmentIterator(t *testing.T) {
 			t.Fatalf("failed to append record %d: %v", i, err)
 		}
 	}
-	writer.Close()
+	_ = writer.Close()
 
 	// Read records
 	segmentPath := writer.segmentPath(1)
@@ -29,7 +29,7 @@ func TestSegmentIterator(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create iterator: %v", err)
 	}
-	defer iter.Close()
+	defer func() { _ = iter.Close() }()
 
 	readCount := 0
 	for iter.Next() {
@@ -67,7 +67,7 @@ func TestSegmentIteratorFromLSN(t *testing.T) {
 			t.Fatalf("failed to append: %v", err)
 		}
 	}
-	writer.Close()
+	_ = writer.Close()
 
 	// Read from LSN 5
 	segmentPath := writer.segmentPath(1)
@@ -75,7 +75,7 @@ func TestSegmentIteratorFromLSN(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create iterator: %v", err)
 	}
-	defer iter.Close()
+	defer func() { _ = iter.Close() }()
 
 	readCount := 0
 	for iter.Next() {
@@ -106,7 +106,7 @@ func TestReadAllRecords(t *testing.T) {
 			t.Fatalf("failed to append: %v", err)
 		}
 	}
-	writer.Close()
+	_ = writer.Close()
 
 	// Read all
 	records, err := ReadAllRecords(writer.segmentPath(1))
@@ -134,7 +134,7 @@ func TestCalculateSegmentChecksum(t *testing.T) {
 			t.Fatalf("failed to append: %v", err)
 		}
 	}
-	writer.Close()
+	_ = writer.Close()
 
 	segmentPath := writer.segmentPath(1)
 
@@ -196,7 +196,7 @@ func TestSegmentWriter(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to finalize: %v", err)
 	}
-	sw.Close()
+	_ = sw.Close()
 
 	if checksum == "" {
 		t.Error("expected non-empty checksum")
@@ -228,7 +228,7 @@ func TestGetSegmentLSNRange(t *testing.T) {
 			t.Fatalf("failed to append: %v", err)
 		}
 	}
-	writer.Close()
+	_ = writer.Close()
 
 	minLSN, maxLSN, count, err := GetSegmentLSNRange(writer.segmentPath(1))
 	if err != nil {
@@ -261,7 +261,7 @@ func TestCorruptedSegment(t *testing.T) {
 			t.Fatalf("failed to append: %v", err)
 		}
 	}
-	writer.Close()
+	_ = writer.Close()
 
 	segmentPath := writer.segmentPath(1)
 
@@ -270,15 +270,15 @@ func TestCorruptedSegment(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to open file: %v", err)
 	}
-	f.WriteAt([]byte{0xFF, 0xFF, 0xFF, 0xFF}, 100) // Corrupt some bytes
-	f.Close()
+	_, _ = f.WriteAt([]byte{0xFF, 0xFF, 0xFF, 0xFF}, 100) // Corrupt some bytes
+	_ = f.Close()
 
 	// Try to read - should fail at some point
 	iter, err := NewSegmentIterator(segmentPath)
 	if err != nil {
 		t.Fatalf("failed to create iterator: %v", err)
 	}
-	defer iter.Close()
+	defer func() { _ = iter.Close() }()
 
 	// Should read some records then hit corruption
 	for iter.Next() {

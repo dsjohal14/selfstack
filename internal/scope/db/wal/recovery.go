@@ -265,7 +265,7 @@ func (r *RecoveryManager) applyRecord(rec *Record, docLSN map[string]uint64) err
 
 // RecoverWithoutManifest performs recovery when no manifest is available
 // Uses file system scan to find segments
-func (r *RecoveryManager) RecoverWithoutManifest(ctx context.Context) (*RecoveryStats, error) {
+func (r *RecoveryManager) RecoverWithoutManifest(_ context.Context) (*RecoveryStats, error) {
 	startTime := time.Now()
 	stats := &RecoveryStats{}
 

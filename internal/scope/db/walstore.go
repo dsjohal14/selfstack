@@ -14,16 +14,16 @@ import (
 
 // WALStore is a WAL-backed document store with durable writes
 type WALStore struct {
-	dataDir      string
-	walDir       string
-	index        *MemIndex
-	writer       *wal.WALWriter
-	manifest     wal.ManifestStore
-	db           *pgxpool.Pool
-	compactor    *wal.Compactor
-	mu           sync.RWMutex
-	closed       bool
-	syncPolicy   wal.SyncPolicy // Track sync policy for Add operations
+	dataDir    string
+	walDir     string
+	index      *MemIndex
+	writer     *wal.WALWriter
+	manifest   wal.ManifestStore
+	db         *pgxpool.Pool
+	compactor  *wal.Compactor
+	mu         sync.RWMutex
+	closed     bool
+	syncPolicy wal.SyncPolicy // Track sync policy for Add operations
 }
 
 // WALStoreConfig holds configuration for WALStore

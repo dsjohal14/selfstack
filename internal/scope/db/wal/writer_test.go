@@ -14,7 +14,7 @@ func TestNewWALWriter(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create WAL writer: %v", err)
 	}
-	defer writer.Close()
+	defer func() { _ = writer.Close() }()
 
 	if writer.CurrentLSN() != 1 {
 		t.Errorf("initial LSN should be 1, got %d", writer.CurrentLSN())
@@ -38,7 +38,7 @@ func TestWALWriterAppend(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create WAL writer: %v", err)
 	}
-	defer writer.Close()
+	defer func() { _ = writer.Close() }()
 
 	// Append records
 	for i := 0; i < 10; i++ {
@@ -64,7 +64,7 @@ func TestWALWriterAppendWithSync(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create WAL writer: %v", err)
 	}
-	defer writer.Close()
+	defer func() { _ = writer.Close() }()
 
 	payload := []byte("test payload for sync")
 	lsn, err := writer.AppendWithSync(RecordTypeInsert, payload)
@@ -93,7 +93,7 @@ func TestWALWriterSegmentRotation(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create WAL writer: %v", err)
 	}
-	defer writer.Close()
+	defer func() { _ = writer.Close() }()
 
 	// Write enough data to trigger rotation
 	payload := make([]byte, 256)
@@ -140,7 +140,7 @@ func TestWALWriterCloseAndReopen(t *testing.T) {
 
 	lastLSN := writer1.CurrentLSN()
 	lastSegment := writer1.CurrentSegmentID()
-	writer1.Close()
+	_ = writer1.Close()
 
 	// Reopen with initial LSN and segment ID
 	writer2, err := NewWALWriter(dir,
@@ -151,7 +151,7 @@ func TestWALWriterCloseAndReopen(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to reopen WAL writer: %v", err)
 	}
-	defer writer2.Close()
+	defer func() { _ = writer2.Close() }()
 
 	// Write more records
 	lsn, err := writer2.Append(RecordTypeInsert, []byte("new payload"))
@@ -183,7 +183,7 @@ func TestWALWriterWithManifest(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create WAL writer: %v", err)
 	}
-	defer writer.Close()
+	defer func() { _ = writer.Close() }()
 
 	// Write enough to trigger rotation
 	payload := make([]byte, 128)
@@ -194,10 +194,8 @@ func TestWALWriterWithManifest(t *testing.T) {
 		}
 	}
 
-	// Verify manifest was updated
-	if manifest.state.CurrentSegmentID == 1 {
-		// May still be 1 if no rotation happened, which is ok
-	}
+	// Verify manifest was updated (may still be 1 if no rotation happened)
+	_ = manifest.state.CurrentSegmentID
 }
 
 func TestWALWriterClosed(t *testing.T) {
@@ -208,7 +206,7 @@ func TestWALWriterClosed(t *testing.T) {
 		t.Fatalf("failed to create WAL writer: %v", err)
 	}
 
-	writer.Close()
+	_ = writer.Close()
 
 	// Append after close should fail
 	_, err = writer.Append(RecordTypeInsert, []byte("test"))
@@ -228,7 +226,7 @@ func TestWALWriterSync(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create WAL writer: %v", err)
 	}
-	defer writer.Close()
+	defer func() { _ = writer.Close() }()
 
 	// Write some records
 	for i := 0; i < 5; i++ {

@@ -28,8 +28,8 @@ import (
 // └─────────────────────────────────────────────────────────────┘
 
 const (
-	// Magic bytes for WAL record identification
-	MagicBytes uint32 = 0x57414C52 // "WALR"
+	// MagicBytes identifies WAL records ("WALR")
+	MagicBytes uint32 = 0x57414C52
 
 	// HeaderSize is the fixed size of the record header
 	HeaderSize = 24
@@ -47,6 +47,7 @@ const (
 // RecordType identifies the type of WAL record
 type RecordType uint8
 
+// Record type values
 const (
 	RecordTypeInsert     RecordType = 0x01 // New document
 	RecordTypeUpdate     RecordType = 0x02 // Replace existing doc
@@ -72,6 +73,7 @@ func (r RecordType) String() string {
 // RecordFlags holds optional flags for records
 type RecordFlags uint8
 
+// Record flag values
 const (
 	FlagNone       RecordFlags = 0x00
 	FlagCompressed RecordFlags = 0x01 // Payload is compressed (future use)

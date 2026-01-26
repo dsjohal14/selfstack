@@ -20,7 +20,7 @@ func TestNewWALStore(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create WAL store: %v", err)
 	}
-	defer store.Close()
+	defer func() { _ = store.Close() }()
 
 	if store.Count() != 0 {
 		t.Errorf("expected 0 documents, got %d", store.Count())
@@ -38,7 +38,7 @@ func TestWALStoreAdd(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create WAL store: %v", err)
 	}
-	defer store.Close()
+	defer func() { _ = store.Close() }()
 
 	// Add document
 	doc := Document{
@@ -81,7 +81,7 @@ func TestWALStoreDelete(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create WAL store: %v", err)
 	}
-	defer store.Close()
+	defer func() { _ = store.Close() }()
 
 	// Add then delete
 	doc := Document{
@@ -92,7 +92,7 @@ func TestWALStoreDelete(t *testing.T) {
 		CreatedAt: time.Now(),
 		Embedding: relay.DeterministicEmbed("test"),
 	}
-	store.Add(doc)
+	_ = store.Add(doc)
 
 	if store.Count() != 1 {
 		t.Errorf("expected 1 document after add")
@@ -124,7 +124,7 @@ func TestWALStoreSearch(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create WAL store: %v", err)
 	}
-	defer store.Close()
+	defer func() { _ = store.Close() }()
 
 	// Add documents
 	docs := []Document{
@@ -183,14 +183,14 @@ func TestWALStoreRecovery(t *testing.T) {
 	}
 
 	countBefore := store1.Count()
-	store1.Close()
+	_ = store1.Close()
 
 	// Reopen store - should recover
 	store2, err := NewWALStore(ctx, config)
 	if err != nil {
 		t.Fatalf("failed to reopen WAL store: %v", err)
 	}
-	defer store2.Close()
+	defer func() { _ = store2.Close() }()
 
 	if store2.Count() != countBefore {
 		t.Errorf("expected %d documents after recovery, got %d", countBefore, store2.Count())
@@ -219,20 +219,20 @@ func TestWALStoreRecoveryWithDelete(t *testing.T) {
 		t.Fatalf("failed to create WAL store: %v", err)
 	}
 
-	store1.Add(Document{ID: "doc1", Source: "test", Title: "Doc 1", Text: "text1", CreatedAt: time.Now(), Embedding: relay.DeterministicEmbed("text1")})
-	store1.Add(Document{ID: "doc2", Source: "test", Title: "Doc 2", Text: "text2", CreatedAt: time.Now(), Embedding: relay.DeterministicEmbed("text2")})
-	store1.Add(Document{ID: "doc3", Source: "test", Title: "Doc 3", Text: "text3", CreatedAt: time.Now(), Embedding: relay.DeterministicEmbed("text3")})
+	_ = store1.Add(Document{ID: "doc1", Source: "test", Title: "Doc 1", Text: "text1", CreatedAt: time.Now(), Embedding: relay.DeterministicEmbed("text1")})
+	_ = store1.Add(Document{ID: "doc2", Source: "test", Title: "Doc 2", Text: "text2", CreatedAt: time.Now(), Embedding: relay.DeterministicEmbed("text2")})
+	_ = store1.Add(Document{ID: "doc3", Source: "test", Title: "Doc 3", Text: "text3", CreatedAt: time.Now(), Embedding: relay.DeterministicEmbed("text3")})
 
 	// Delete one
-	store1.Delete("doc2")
-	store1.Close()
+	_ = store1.Delete("doc2")
+	_ = store1.Close()
 
 	// Reopen
 	store2, err := NewWALStore(ctx, config)
 	if err != nil {
 		t.Fatalf("failed to reopen WAL store: %v", err)
 	}
-	defer store2.Close()
+	defer func() { _ = store2.Close() }()
 
 	if store2.Count() != 2 {
 		t.Errorf("expected 2 documents after recovery, got %d", store2.Count())
@@ -265,7 +265,7 @@ func TestWALStoreUpdate(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create WAL store: %v", err)
 	}
-	defer store.Close()
+	defer func() { _ = store.Close() }()
 
 	// Add document
 	doc := Document{
@@ -276,13 +276,13 @@ func TestWALStoreUpdate(t *testing.T) {
 		CreatedAt: time.Now(),
 		Embedding: relay.DeterministicEmbed("original text"),
 	}
-	store.Add(doc)
+	_ = store.Add(doc)
 
 	// Update document
 	doc.Title = "Updated Title"
 	doc.Text = "updated text"
 	doc.Embedding = relay.DeterministicEmbed("updated text")
-	store.Add(doc)
+	_ = store.Add(doc)
 
 	if store.Count() != 1 {
 		t.Errorf("expected 1 document after update, got %d", store.Count())
@@ -309,22 +309,22 @@ func TestWALStoreUpdateRecovery(t *testing.T) {
 	}
 
 	doc := Document{ID: "doc1", Source: "test", Title: "V1", Text: "text", CreatedAt: time.Now(), Embedding: relay.DeterministicEmbed("text")}
-	store1.Add(doc)
+	_ = store1.Add(doc)
 
 	doc.Title = "V2"
-	store1.Add(doc)
+	_ = store1.Add(doc)
 
 	doc.Title = "V3"
-	store1.Add(doc)
+	_ = store1.Add(doc)
 
-	store1.Close()
+	_ = store1.Close()
 
 	// Reopen and verify latest version
 	store2, err := NewWALStore(ctx, config)
 	if err != nil {
 		t.Fatalf("failed to reopen: %v", err)
 	}
-	defer store2.Close()
+	defer func() { _ = store2.Close() }()
 
 	retrieved, _ := store2.Get("doc1")
 	if retrieved.Title != "V3" {
@@ -342,7 +342,7 @@ func TestWALStoreFlush(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to create WAL store: %v", err)
 	}
-	defer store.Close()
+	defer func() { _ = store.Close() }()
 
 	// Flush should be a no-op (all writes are already synced)
 	err = store.Flush()

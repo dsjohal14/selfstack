@@ -12,6 +12,7 @@ import (
 // SegmentStatus represents the lifecycle status of a segment
 type SegmentStatus string
 
+// Segment status values
 const (
 	SegmentStatusActive     SegmentStatus = "active"
 	SegmentStatusSealed     SegmentStatus = "sealed"
@@ -35,6 +36,8 @@ type SegmentInfo struct {
 }
 
 // WALState contains the global WAL state
+//
+//nolint:revive // WALState name is intentional for clarity
 type WALState struct {
 	CurrentSegmentID uint64
 	NextLSN          uint64
@@ -400,7 +403,7 @@ func (m *InMemoryManifest) GetActiveSegment(_ context.Context) (*SegmentInfo, er
 }
 
 // CreateSegment registers a new segment
-func (m *InMemoryManifest) CreateSegment(ctx context.Context, segmentID uint64, filename string) error {
+func (m *InMemoryManifest) CreateSegment(_ context.Context, segmentID uint64, filename string) error {
 	m.segments[segmentID] = &SegmentInfo{
 		ID:        int64(segmentID),
 		SegmentID: segmentID,
@@ -413,7 +416,7 @@ func (m *InMemoryManifest) CreateSegment(ctx context.Context, segmentID uint64, 
 }
 
 // SealSegment marks a segment as sealed with its checksum
-func (m *InMemoryManifest) SealSegment(ctx context.Context, segmentID uint64, checksum string) error {
+func (m *InMemoryManifest) SealSegment(_ context.Context, segmentID uint64, checksum string) error {
 	seg, ok := m.segments[segmentID]
 	if !ok {
 		return fmt.Errorf("segment %d not found", segmentID)
@@ -426,7 +429,7 @@ func (m *InMemoryManifest) SealSegment(ctx context.Context, segmentID uint64, ch
 }
 
 // UpdateSegmentStats updates segment statistics
-func (m *InMemoryManifest) UpdateSegmentStats(ctx context.Context, segmentID uint64, sizeBytes int64, recordCount int, minLSN, maxLSN uint64) error {
+func (m *InMemoryManifest) UpdateSegmentStats(_ context.Context, segmentID uint64, sizeBytes int64, recordCount int, minLSN, maxLSN uint64) error {
 	seg, ok := m.segments[segmentID]
 	if !ok {
 		return fmt.Errorf("segment %d not found", segmentID)
@@ -444,7 +447,7 @@ func (m *InMemoryManifest) GetSealedSegments(ctx context.Context) ([]SegmentInfo
 }
 
 // GetSegmentsByStatus returns segments with the given status
-func (m *InMemoryManifest) GetSegmentsByStatus(ctx context.Context, status SegmentStatus) ([]SegmentInfo, error) {
+func (m *InMemoryManifest) GetSegmentsByStatus(_ context.Context, status SegmentStatus) ([]SegmentInfo, error) {
 	var result []SegmentInfo
 	for _, seg := range m.segments {
 		if seg.Status == status {
@@ -455,7 +458,7 @@ func (m *InMemoryManifest) GetSegmentsByStatus(ctx context.Context, status Segme
 }
 
 // UpdateSegmentStatus updates a segment's status
-func (m *InMemoryManifest) UpdateSegmentStatus(ctx context.Context, segmentID uint64, status SegmentStatus) error {
+func (m *InMemoryManifest) UpdateSegmentStatus(_ context.Context, segmentID uint64, status SegmentStatus) error {
 	seg, ok := m.segments[segmentID]
 	if !ok {
 		return fmt.Errorf("segment %d not found", segmentID)
@@ -465,7 +468,7 @@ func (m *InMemoryManifest) UpdateSegmentStatus(ctx context.Context, segmentID ui
 }
 
 // ArchiveSegments marks multiple segments as archived
-func (m *InMemoryManifest) ArchiveSegments(ctx context.Context, segmentIDs []uint64) error {
+func (m *InMemoryManifest) ArchiveSegments(_ context.Context, segmentIDs []uint64) error {
 	for _, id := range segmentIDs {
 		if seg, ok := m.segments[id]; ok {
 			seg.Status = SegmentStatusArchived
@@ -475,12 +478,12 @@ func (m *InMemoryManifest) ArchiveSegments(ctx context.Context, segmentIDs []uin
 }
 
 // GetWALState returns the current WAL state
-func (m *InMemoryManifest) GetWALState(ctx context.Context) (*WALState, error) {
+func (m *InMemoryManifest) GetWALState(_ context.Context) (*WALState, error) {
 	return &m.state, nil
 }
 
 // UpdateWALState updates the WAL state
-func (m *InMemoryManifest) UpdateWALState(ctx context.Context, currentSegmentID, nextLSN uint64) error {
+func (m *InMemoryManifest) UpdateWALState(_ context.Context, currentSegmentID, nextLSN uint64) error {
 	m.state.CurrentSegmentID = currentSegmentID
 	m.state.NextLSN = nextLSN
 	m.state.UpdatedAt = time.Now()
@@ -488,14 +491,14 @@ func (m *InMemoryManifest) UpdateWALState(ctx context.Context, currentSegmentID,
 }
 
 // UpdateCheckpointLSN updates the checkpoint LSN
-func (m *InMemoryManifest) UpdateCheckpointLSN(ctx context.Context, lsn uint64) error {
+func (m *InMemoryManifest) UpdateCheckpointLSN(_ context.Context, lsn uint64) error {
 	m.state.CheckpointLSN = lsn
 	m.state.UpdatedAt = time.Now()
 	return nil
 }
 
 // GetRecoveryInfo returns all information needed for recovery
-func (m *InMemoryManifest) GetRecoveryInfo(ctx context.Context) (*RecoveryInfo, error) {
+func (m *InMemoryManifest) GetRecoveryInfo(_ context.Context) (*RecoveryInfo, error) {
 	var segments []SegmentInfo
 	for _, seg := range m.segments {
 		if seg.Status != SegmentStatusArchived {
