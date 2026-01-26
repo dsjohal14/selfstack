@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"hash/crc32"
+	"io"
 	"os"
 	"path/filepath"
 	"sync"
@@ -184,11 +185,11 @@ func (w *WALWriter) findLastValidOffset(path string) (int64, error) {
 	var offset int64 = 0
 
 	for {
-		// Read header
+		// Read header using io.ReadFull to handle short reads correctly
 		header := make([]byte, HeaderSize)
-		n, err := f.Read(header)
-		if err != nil || n < HeaderSize {
-			break // EOF or partial header
+		_, err := io.ReadFull(f, header)
+		if err != nil {
+			break // EOF or incomplete header
 		}
 
 		// Verify magic
@@ -203,18 +204,18 @@ func (w *WALWriter) findLastValidOffset(path string) (int64, error) {
 			break // Invalid payload size
 		}
 
-		// Read payload + CRC
-		payloadAndCRC := make([]byte, payloadLen+4)
-		n, err = f.Read(payloadAndCRC)
-		if err != nil || n < int(payloadLen)+4 {
-			break // Incomplete record
-		}
-
-		// Verify header CRC
+		// Verify header CRC before reading payload
 		headerCRC := binary.LittleEndian.Uint32(header[20:24])
 		expectedHeaderCRC := crc32.ChecksumIEEE(header[0:20])
 		if headerCRC != expectedHeaderCRC {
 			break // Corrupt header
+		}
+
+		// Read payload + CRC using io.ReadFull
+		payloadAndCRC := make([]byte, payloadLen+4)
+		_, err = io.ReadFull(f, payloadAndCRC)
+		if err != nil {
+			break // Incomplete record
 		}
 
 		// Verify payload CRC
