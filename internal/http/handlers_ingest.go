@@ -62,9 +62,8 @@ func (h *Handler) HandleIngest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Flush to disk for legacy file-based store
-	// WALStore handles its own durability via sync policy (Flush is no-op for immediate sync)
-	// For batched sync, this ensures durability at cost of throughput
+	// Flush to disk for legacy file-based store only
+	// WALStore handles its own durability via sync policy and doesn't need explicit flush
 	if _, isWALStore := h.store.(*db.WALStore); !isWALStore {
 		if err := h.store.Flush(); err != nil {
 			h.logger.Error().Err(err).Msg("failed to persist document")
