@@ -77,6 +77,7 @@ func (r *SegmentRoller) ListSegmentFiles() ([]string, error) {
 }
 
 // ListSegmentFiles returns all segment files in a directory, sorted by segment ID
+// Includes both WAL segments (wal_) and compacted segments (cmp_)
 func ListSegmentFiles(dir string) ([]string, error) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
@@ -91,13 +92,21 @@ func ListSegmentFiles(dir string) ([]string, error) {
 		if entry.IsDir() {
 			continue
 		}
-		if strings.HasPrefix(entry.Name(), "wal_") && strings.HasSuffix(entry.Name(), ".seg") {
-			segments = append(segments, filepath.Join(dir, entry.Name()))
+		name := entry.Name()
+		// Include both WAL segments and compacted segments
+		isWAL := strings.HasPrefix(name, "wal_") && strings.HasSuffix(name, ".seg")
+		isCompacted := strings.HasPrefix(name, "cmp_") && strings.HasSuffix(name, ".seg")
+		if isWAL || isCompacted {
+			segments = append(segments, filepath.Join(dir, name))
 		}
 	}
 
-	// Sort by filename (which includes the segment ID)
-	sort.Strings(segments)
+	// Sort by extracted segment ID to ensure proper ordering
+	sort.Slice(segments, func(i, j int) bool {
+		idI, _ := GetSegmentID(segments[i])
+		idJ, _ := GetSegmentID(segments[j])
+		return idI < idJ
+	})
 	return segments, nil
 }
 
@@ -137,19 +146,36 @@ func (r *SegmentRoller) CleanupOldSegments(ctx context.Context) (int, error) {
 }
 
 // GetSegmentID extracts the segment ID from a segment filename
+// Supports both WAL segments (wal_) and compacted segments (cmp_)
 func GetSegmentID(filename string) (uint64, error) {
 	base := filepath.Base(filename)
 	var id uint64
+
+	// Try WAL segment format
 	n, err := fmt.Sscanf(base, "wal_%d.seg", &id)
-	if err != nil || n != 1 {
-		return 0, fmt.Errorf("invalid segment filename: %s", filename)
+	if err == nil && n == 1 {
+		return id, nil
 	}
-	return id, nil
+
+	// Try compacted segment format
+	n, err = fmt.Sscanf(base, "cmp_%d.seg", &id)
+	if err == nil && n == 1 {
+		return id, nil
+	}
+
+	return 0, fmt.Errorf("invalid segment filename: %s", filename)
 }
 
-// SegmentFilename generates a segment filename for a given ID
+// SegmentFilename generates a WAL segment filename for a given ID
 func SegmentFilename(segmentID uint64) string {
 	return fmt.Sprintf("wal_%012d.seg", segmentID)
+}
+
+// CompactedSegmentFilename generates a compacted segment filename for a given ID
+// Compacted segments use a separate namespace (cmp_) to avoid ID collisions with
+// the live WAL writer during rotation
+func CompactedSegmentFilename(segmentID uint64) string {
+	return fmt.Sprintf("cmp_%012d.seg", segmentID)
 }
 
 // FindLatestSegment finds the segment with the highest ID in a directory

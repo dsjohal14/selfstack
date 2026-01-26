@@ -252,26 +252,10 @@ func (c *Compactor) compactSegments(ctx context.Context, segments []SegmentInfo)
 	sizeBytes := writer.Offset()
 	_ = writer.Close()
 
-	// Determine new segment ID - CRITICAL: must be higher than both:
-	// 1. The highest compacted segment
-	// 2. The current active segment (to prevent collision)
+	// Determine new segment ID for the compacted segment
+	// Compacted segments use a separate filename namespace (cmp_) to avoid
+	// ID collisions with the live WAL writer during rotation
 	newSegmentID := segments[len(segments)-1].SegmentID + 1
-
-	// Check WAL state to get current active segment ID
-	walState, err := c.manifest.GetWALState(ctx)
-	if err == nil && walState != nil && walState.CurrentSegmentID >= newSegmentID {
-		newSegmentID = walState.CurrentSegmentID + 1
-	}
-
-	// Also check for active segments in manifest
-	activeSegs, err := c.manifest.GetSegmentsByStatus(ctx, SegmentStatusActive)
-	if err == nil {
-		for _, seg := range activeSegs {
-			if seg.SegmentID >= newSegmentID {
-				newSegmentID = seg.SegmentID + 1
-			}
-		}
-	}
 
 	// Atomic swap in transaction
 	tx, err := c.db.Begin(ctx)
@@ -303,8 +287,8 @@ func (c *Compactor) compactSegments(ctx context.Context, segments []SegmentInfo)
 		}
 	}
 
-	// Move temp file to final location
-	finalPath := filepath.Join(c.segmentDir, SegmentFilename(newSegmentID))
+	// Move temp file to final location (use compacted segment namespace)
+	finalPath := filepath.Join(c.segmentDir, CompactedSegmentFilename(newSegmentID))
 	if err := os.Rename(tmpPath, finalPath); err != nil {
 		cleanupTxError(tmpPath)
 		return fmt.Errorf("failed to move compacted segment: %w", err)
