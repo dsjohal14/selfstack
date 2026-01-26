@@ -10,12 +10,12 @@ import (
 
 // Handler contains HTTP handlers for the API
 type Handler struct {
-	store  *db.Store
+	store  db.Storage
 	logger zerolog.Logger
 }
 
 // NewHandler creates a new HTTP handler
-func NewHandler(store *db.Store, logger zerolog.Logger) *Handler {
+func NewHandler(store db.Storage, logger zerolog.Logger) *Handler {
 	return &Handler{
 		store:  store,
 		logger: logger,
