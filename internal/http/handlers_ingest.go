@@ -55,13 +55,22 @@ func (h *Handler) HandleIngest(w http.ResponseWriter, r *http.Request) {
 		Embedding: embedding,
 	}
 
-	// Store document (WAL handles durability based on sync policy:
-	// - Immediate sync: fsyncs after every write, durable when Add returns
-	// - Batched sync: background fsync for throughput, may lose recent writes on crash)
+	// Store document
 	if err := h.store.Add(doc); err != nil {
 		h.logger.Error().Err(err).Str("doc_id", req.ID).Msg("failed to store document")
 		writeError(w, http.StatusInternalServerError, "failed to store document", "STORE_ERROR")
 		return
+	}
+
+	// Flush to disk for legacy file-based store
+	// WALStore handles its own durability via sync policy (Flush is no-op for immediate sync)
+	// For batched sync, this ensures durability at cost of throughput
+	if _, isWALStore := h.store.(*db.WALStore); !isWALStore {
+		if err := h.store.Flush(); err != nil {
+			h.logger.Error().Err(err).Msg("failed to persist document")
+			writeError(w, http.StatusInternalServerError, "failed to persist document", "PERSIST_ERROR")
+			return
+		}
 	}
 
 	h.logger.Info().
