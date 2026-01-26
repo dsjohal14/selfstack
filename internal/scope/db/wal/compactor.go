@@ -158,9 +158,18 @@ func (c *Compactor) compactSegments(ctx context.Context, segments []SegmentInfo)
 		return nil
 	}
 
+	// Helper to rollback segments to sealed status on any error
+	rollbackToSealed := func() {
+		for _, seg := range segments {
+			_ = c.manifest.UpdateSegmentStatus(ctx, seg.SegmentID, SegmentStatusSealed)
+		}
+	}
+
 	// Mark segments as compacting
 	for _, seg := range segments {
 		if err := c.manifest.UpdateSegmentStatus(ctx, seg.SegmentID, SegmentStatusCompacting); err != nil {
+			// Rollback any already marked segments
+			rollbackToSealed()
 			return fmt.Errorf("failed to mark segment %d as compacting: %w", seg.SegmentID, err)
 		}
 	}
@@ -168,10 +177,7 @@ func (c *Compactor) compactSegments(ctx context.Context, segments []SegmentInfo)
 	// Merge records
 	records, tombstones, err := c.mergeRecords(segments)
 	if err != nil {
-		// Rollback status
-		for _, seg := range segments {
-			_ = c.manifest.UpdateSegmentStatus(ctx, seg.SegmentID, SegmentStatusSealed)
-		}
+		rollbackToSealed()
 		return fmt.Errorf("failed to merge records: %w", err)
 	}
 
@@ -190,6 +196,7 @@ func (c *Compactor) compactSegments(ctx context.Context, segments []SegmentInfo)
 			segmentIDs[i] = seg.SegmentID
 		}
 		if err := c.manifest.ArchiveSegments(ctx, segmentIDs); err != nil {
+			rollbackToSealed()
 			return fmt.Errorf("failed to archive segments: %w", err)
 		}
 		// Delete segment files
@@ -203,6 +210,7 @@ func (c *Compactor) compactSegments(ctx context.Context, segments []SegmentInfo)
 	tmpPath := filepath.Join(c.config.TmpDir, fmt.Sprintf("compact_%d.seg", time.Now().UnixNano()))
 	writer, err := NewSegmentWriter(tmpPath)
 	if err != nil {
+		rollbackToSealed()
 		return fmt.Errorf("failed to create temp segment: %w", err)
 	}
 
@@ -220,6 +228,7 @@ func (c *Compactor) compactSegments(ctx context.Context, segments []SegmentInfo)
 		if err := writer.Write(rec); err != nil {
 			_ = writer.Close()
 			_ = os.Remove(tmpPath)
+			rollbackToSealed()
 			return fmt.Errorf("failed to write record: %w", err)
 		}
 		if i == 0 {
@@ -232,6 +241,7 @@ func (c *Compactor) compactSegments(ctx context.Context, segments []SegmentInfo)
 	if err != nil {
 		_ = writer.Close()
 		_ = os.Remove(tmpPath)
+		rollbackToSealed()
 		return fmt.Errorf("failed to finalize segment: %w", err)
 	}
 
@@ -263,15 +273,17 @@ func (c *Compactor) compactSegments(ctx context.Context, segments []SegmentInfo)
 	tx, err := c.db.Begin(ctx)
 	if err != nil {
 		_ = os.Remove(tmpPath)
+		rollbackToSealed()
 		return fmt.Errorf("failed to begin transaction: %w", err)
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	// Archive old segments
+	// Archive old segments in transaction (will be committed atomically)
 	for _, seg := range segments {
 		_, err := tx.Exec(ctx, "UPDATE wal_segments SET status = 'archived' WHERE segment_id = $1", seg.SegmentID)
 		if err != nil {
 			_ = os.Remove(tmpPath)
+			rollbackToSealed()
 			return fmt.Errorf("failed to archive segment %d: %w", seg.SegmentID, err)
 		}
 	}
@@ -280,6 +292,7 @@ func (c *Compactor) compactSegments(ctx context.Context, segments []SegmentInfo)
 	finalPath := filepath.Join(c.segmentDir, SegmentFilename(newSegmentID))
 	if err := os.Rename(tmpPath, finalPath); err != nil {
 		_ = os.Remove(tmpPath)
+		rollbackToSealed()
 		return fmt.Errorf("failed to move compacted segment: %w", err)
 	}
 
@@ -289,13 +302,15 @@ func (c *Compactor) compactSegments(ctx context.Context, segments []SegmentInfo)
 		VALUES ($1, $2, $3, $4, $5, $6, 'sealed', $7, NOW())
 	`, newSegmentID, finalPath, sizeBytes, len(sortedRecords), minLSN, maxLSN, checksum)
 	if err != nil {
-		// Try to move file back or delete it
+		// Transaction will rollback, but file was already moved - delete it
 		_ = os.Remove(finalPath)
+		rollbackToSealed()
 		return fmt.Errorf("failed to register compacted segment: %w", err)
 	}
 
 	if err := tx.Commit(ctx); err != nil {
 		_ = os.Remove(finalPath)
+		rollbackToSealed()
 		return fmt.Errorf("failed to commit transaction: %w", err)
 	}
 
