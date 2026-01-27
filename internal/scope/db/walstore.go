@@ -115,8 +115,10 @@ func NewWALStore(ctx context.Context, config WALStoreConfig) (*WALStore, error) 
 		initialLSN = recoveryStats.MaxLSN + 1
 	}
 
-	// Find latest segment from file system to prevent segment ID collision
-	_, latestSegID, err := wal.FindLatestSegment(walDir)
+	// Find latest WAL segment from file system to prevent segment ID collision.
+	// Use WAL-only listing to avoid using compacted segment IDs which live in a
+	// separate namespace and don't affect WAL writer ID allocation.
+	_, latestSegID, err := wal.FindLatestWALSegment(walDir)
 	if err == nil && latestSegID >= initialSegmentID {
 		initialSegmentID = latestSegID
 	}

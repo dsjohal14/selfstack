@@ -151,23 +151,131 @@ func TestCompactedAndWALSegmentsNoCollision(t *testing.T) {
 		t.Errorf("expected 2 segments, got %d", len(segments))
 	}
 
-	// Verify both are included
-	foundWAL := false
-	foundCMP := false
-	for _, seg := range segments {
-		base := filepath.Base(seg)
-		if base == "wal_000000000005.seg" {
-			foundWAL = true
+	// Verify both are included and WAL sorts before compacted (deterministic)
+	if len(segments) == 2 {
+		if !IsWALSegment(segments[0]) {
+			t.Error("WAL segment should sort before compacted segment with same ID")
 		}
-		if base == "cmp_000000000005.seg" {
-			foundCMP = true
+		if !IsCompactedSegment(segments[1]) {
+			t.Error("Compacted segment should sort after WAL segment with same ID")
+		}
+	}
+}
+
+func TestListWALSegmentFiles(t *testing.T) {
+	dir := t.TempDir()
+
+	// Create mixed WAL and compacted segment files
+	files := []string{
+		"wal_000000000001.seg",
+		"wal_000000000003.seg",
+		"cmp_000000000002.seg", // Should be excluded
+		"cmp_000000000004.seg", // Should be excluded
+		"wal_000000000005.seg",
+	}
+
+	for _, f := range files {
+		path := filepath.Join(dir, f)
+		if err := os.WriteFile(path, []byte("test"), 0644); err != nil {
+			t.Fatalf("failed to create test file: %v", err)
 		}
 	}
 
-	if !foundWAL {
-		t.Error("WAL segment not found in list")
+	segments, err := ListWALSegmentFiles(dir)
+	if err != nil {
+		t.Fatalf("ListWALSegmentFiles failed: %v", err)
 	}
-	if !foundCMP {
-		t.Error("Compacted segment not found in list")
+
+	// Should only have WAL segment files
+	if len(segments) != 3 {
+		t.Errorf("expected 3 WAL segments, got %d", len(segments))
+	}
+
+	// All should be WAL segments
+	for _, seg := range segments {
+		if !IsWALSegment(seg) {
+			t.Errorf("expected WAL segment, got %s", filepath.Base(seg))
+		}
+	}
+
+	// Should be sorted by segment ID
+	expectedOrder := []uint64{1, 3, 5}
+	for i, seg := range segments {
+		id, _ := GetSegmentID(seg)
+		if id != expectedOrder[i] {
+			t.Errorf("segment %d: expected ID %d, got %d", i, expectedOrder[i], id)
+		}
+	}
+}
+
+func TestFindLatestWALSegment(t *testing.T) {
+	dir := t.TempDir()
+
+	// Create WAL and compacted segments where compacted has higher ID
+	files := []string{
+		"wal_000000000001.seg",
+		"wal_000000000003.seg",
+		"cmp_000000000010.seg", // Higher ID but should be ignored
+	}
+
+	for _, f := range files {
+		path := filepath.Join(dir, f)
+		if err := os.WriteFile(path, []byte("test"), 0644); err != nil {
+			t.Fatalf("failed to create test file: %v", err)
+		}
+	}
+
+	// FindLatestWALSegment should return WAL segment 3, not compacted 10
+	path, id, err := FindLatestWALSegment(dir)
+	if err != nil {
+		t.Fatalf("FindLatestWALSegment failed: %v", err)
+	}
+
+	if id != 3 {
+		t.Errorf("expected latest WAL segment ID 3, got %d", id)
+	}
+
+	if filepath.Base(path) != "wal_000000000003.seg" {
+		t.Errorf("expected wal_000000000003.seg, got %s", filepath.Base(path))
+	}
+}
+
+func TestIsWALSegment(t *testing.T) {
+	tests := []struct {
+		filename string
+		expected bool
+	}{
+		{"wal_000000000001.seg", true},
+		{"/path/to/wal_000000000001.seg", true},
+		{"cmp_000000000001.seg", false},
+		{"/path/to/cmp_000000000001.seg", false},
+		{"other.txt", false},
+	}
+
+	for _, tc := range tests {
+		got := IsWALSegment(tc.filename)
+		if got != tc.expected {
+			t.Errorf("IsWALSegment(%s) = %v, want %v", tc.filename, got, tc.expected)
+		}
+	}
+}
+
+func TestIsCompactedSegment(t *testing.T) {
+	tests := []struct {
+		filename string
+		expected bool
+	}{
+		{"cmp_000000000001.seg", true},
+		{"/path/to/cmp_000000000001.seg", true},
+		{"wal_000000000001.seg", false},
+		{"/path/to/wal_000000000001.seg", false},
+		{"other.txt", false},
+	}
+
+	for _, tc := range tests {
+		got := IsCompactedSegment(tc.filename)
+		if got != tc.expected {
+			t.Errorf("IsCompactedSegment(%s) = %v, want %v", tc.filename, got, tc.expected)
+		}
 	}
 }

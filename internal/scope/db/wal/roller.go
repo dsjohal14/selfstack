@@ -76,8 +76,9 @@ func (r *SegmentRoller) ListSegmentFiles() ([]string, error) {
 	return ListSegmentFiles(r.dir)
 }
 
-// ListSegmentFiles returns all segment files in a directory, sorted by segment ID
-// Includes both WAL segments (wal_) and compacted segments (cmp_)
+// ListSegmentFiles returns all segment files in a directory, sorted by segment ID.
+// Includes both WAL segments (wal_) and compacted segments (cmp_).
+// When IDs are equal, WAL segments sort before compacted segments for deterministic ordering.
 func ListSegmentFiles(dir string) ([]string, error) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
@@ -101,13 +102,58 @@ func ListSegmentFiles(dir string) ([]string, error) {
 		}
 	}
 
-	// Sort by extracted segment ID to ensure proper ordering
+	// Sort by segment ID, with WAL segments before compacted segments as tiebreaker
+	sort.Slice(segments, func(i, j int) bool {
+		idI, _ := GetSegmentID(segments[i])
+		idJ, _ := GetSegmentID(segments[j])
+		if idI != idJ {
+			return idI < idJ
+		}
+		// Same ID: WAL (wal_) sorts before compacted (cmp_)
+		return IsWALSegment(segments[i]) && !IsWALSegment(segments[j])
+	})
+	return segments, nil
+}
+
+// ListWALSegmentFiles returns only WAL segment files (not compacted) in a directory,
+// sorted by segment ID. Use this for WAL writer initialization.
+func ListWALSegmentFiles(dir string) ([]string, error) {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("failed to read directory: %w", err)
+	}
+
+	var segments []string
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		name := entry.Name()
+		if strings.HasPrefix(name, "wal_") && strings.HasSuffix(name, ".seg") {
+			segments = append(segments, filepath.Join(dir, name))
+		}
+	}
+
+	// Sort by segment ID
 	sort.Slice(segments, func(i, j int) bool {
 		idI, _ := GetSegmentID(segments[i])
 		idJ, _ := GetSegmentID(segments[j])
 		return idI < idJ
 	})
 	return segments, nil
+}
+
+// IsWALSegment returns true if the filename is a WAL segment (wal_ prefix)
+func IsWALSegment(filename string) bool {
+	return strings.HasPrefix(filepath.Base(filename), "wal_")
+}
+
+// IsCompactedSegment returns true if the filename is a compacted segment (cmp_ prefix)
+func IsCompactedSegment(filename string) bool {
+	return strings.HasPrefix(filepath.Base(filename), "cmp_")
 }
 
 // CleanupOldSegments removes archived segments that exceed the retention limit
@@ -178,9 +224,33 @@ func CompactedSegmentFilename(segmentID uint64) string {
 	return fmt.Sprintf("cmp_%012d.seg", segmentID)
 }
 
-// FindLatestSegment finds the segment with the highest ID in a directory
+// FindLatestSegment finds the segment with the highest ID in a directory.
+// Includes both WAL and compacted segments. For WAL writer initialization,
+// use FindLatestWALSegment instead to avoid using compacted segment IDs.
 func FindLatestSegment(dir string) (string, uint64, error) {
 	segments, err := ListSegmentFiles(dir)
+	if err != nil {
+		return "", 0, err
+	}
+
+	if len(segments) == 0 {
+		return "", 0, nil
+	}
+
+	latest := segments[len(segments)-1]
+	id, err := GetSegmentID(latest)
+	if err != nil {
+		return "", 0, err
+	}
+
+	return latest, id, nil
+}
+
+// FindLatestWALSegment finds the WAL segment with the highest ID in a directory.
+// Only considers WAL segments (wal_ prefix), not compacted segments (cmp_).
+// Use this for WAL writer initialization to avoid ID collisions with compacted segments.
+func FindLatestWALSegment(dir string) (string, uint64, error) {
+	segments, err := ListWALSegmentFiles(dir)
 	if err != nil {
 		return "", 0, err
 	}

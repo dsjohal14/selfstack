@@ -150,7 +150,8 @@ func TestInMemoryManifestSegmentStats(t *testing.T) {
 	}
 
 	// Verify
-	seg := manifest.segments[1]
+	key := segmentKey{Type: SegmentTypeWAL, ID: 1}
+	seg := manifest.segments[key]
 	if seg.SizeBytes != 1024 {
 		t.Errorf("expected size 1024, got %d", seg.SizeBytes)
 	}

@@ -129,10 +129,10 @@ func (c *Compactor) Compact(ctx context.Context) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	// Get sealed segments
-	segments, err := c.manifest.GetSealedSegments(ctx)
+	// Get sealed WAL segments only (not compacted segments)
+	segments, err := c.manifest.GetSealedWALSegments(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to get sealed segments: %w", err)
+		return fmt.Errorf("failed to get sealed WAL segments: %w", err)
 	}
 
 	if len(segments) < c.config.MinSegmentsToCompact {
@@ -278,12 +278,12 @@ func (c *Compactor) compactSegments(ctx context.Context, segments []SegmentInfo)
 		rollbackToSealed()
 	}
 
-	// Archive old segments in transaction (will be committed atomically)
+	// Archive old WAL segments in transaction (will be committed atomically)
 	for _, seg := range segments {
-		_, err := tx.Exec(ctx, "UPDATE wal_segments SET status = 'archived' WHERE segment_id = $1", seg.SegmentID)
+		_, err := tx.Exec(ctx, "UPDATE wal_segments SET status = 'archived' WHERE segment_id = $1 AND segment_type = 'wal'", seg.SegmentID)
 		if err != nil {
 			cleanupTxError(tmpPath)
-			return fmt.Errorf("failed to archive segment %d: %w", seg.SegmentID, err)
+			return fmt.Errorf("failed to archive WAL segment %d: %w", seg.SegmentID, err)
 		}
 	}
 
@@ -294,10 +294,10 @@ func (c *Compactor) compactSegments(ctx context.Context, segments []SegmentInfo)
 		return fmt.Errorf("failed to move compacted segment: %w", err)
 	}
 
-	// Register new segment
+	// Register new compacted segment (segment_type='cmp')
 	_, err = tx.Exec(ctx, `
-		INSERT INTO wal_segments (segment_id, filename, size_bytes, record_count, min_lsn, max_lsn, status, checksum, sealed_at)
-		VALUES ($1, $2, $3, $4, $5, $6, 'sealed', $7, NOW())
+		INSERT INTO wal_segments (segment_id, segment_type, filename, size_bytes, record_count, min_lsn, max_lsn, status, checksum, sealed_at, created_at)
+		VALUES ($1, 'cmp', $2, $3, $4, $5, $6, 'sealed', $7, NOW(), NOW())
 	`, newSegmentID, finalPath, sizeBytes, len(sortedRecords), minLSN, maxLSN, checksum)
 	if err != nil {
 		cleanupTxError(finalPath)
@@ -401,18 +401,18 @@ func (c *Compactor) CompactOnce(ctx context.Context) error {
 	return c.Compact(ctx)
 }
 
-// ForceCompact compacts all sealed segments regardless of minimum count
+// ForceCompact compacts all sealed WAL segments regardless of minimum count
 func (c *Compactor) ForceCompact(ctx context.Context) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	segments, err := c.manifest.GetSealedSegments(ctx)
+	segments, err := c.manifest.GetSealedWALSegments(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to get sealed segments: %w", err)
+		return fmt.Errorf("failed to get sealed WAL segments: %w", err)
 	}
 
 	if len(segments) < 2 {
-		return nil // Need at least 2 segments
+		return nil // Need at least 2 WAL segments
 	}
 
 	return c.compactSegments(ctx, segments)
