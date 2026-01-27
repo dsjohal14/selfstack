@@ -33,6 +33,7 @@ db-up:
 	@echo "Running migrations..."
 	cat migrations/0001_init.sql | docker exec -i selfstack-db psql -U selfstack -d selfstack 2>/dev/null || true
 	cat migrations/0002_wal_segments.sql | docker exec -i selfstack-db psql -U selfstack -d selfstack 2>/dev/null || true
+	cat migrations/0003_segment_type.sql | docker exec -i selfstack-db psql -U selfstack -d selfstack 2>/dev/null || true
 	@echo "Database ready!"
 
 db-down:
@@ -41,6 +42,7 @@ db-down:
 migrate:
 	cat migrations/0001_init.sql | docker exec -i selfstack-db psql -U selfstack -d selfstack
 	cat migrations/0002_wal_segments.sql | docker exec -i selfstack-db psql -U selfstack -d selfstack
+	cat migrations/0003_segment_type.sql | docker exec -i selfstack-db psql -U selfstack -d selfstack
 
 # Run all pre-commit checks
 precommit: fmt tidy lint test
