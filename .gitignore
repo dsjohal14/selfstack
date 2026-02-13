@@ -4,6 +4,8 @@ dist/
 *.out
 /tmp
 cover.out
+/api
+/worker
 
 # Environment
 .env
@@ -22,3 +24,11 @@ out/
 .idea/
 .vscode/
 *.swp
+
+# Claude Code
+CLAUDE.md
+.claude/
+
+# Project planning docs (local only)
+SELF_PROJECT_V2.md
+self-project.pdf

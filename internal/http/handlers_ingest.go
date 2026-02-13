@@ -1,4 +1,4 @@
-package http
+package httpapi
 
 import (
 	"encoding/json"
@@ -62,11 +62,14 @@ func (h *Handler) HandleIngest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Flush to disk
-	if err := h.store.Flush(); err != nil {
-		h.logger.Error().Err(err).Msg("failed to persist document")
-		writeError(w, http.StatusInternalServerError, "failed to persist document", "PERSIST_ERROR")
-		return
+	// Flush to disk for legacy file-based store only
+	// WALStore handles its own durability via sync policy and doesn't need explicit flush
+	if _, isWALStore := h.store.(*db.WALStore); !isWALStore {
+		if err := h.store.Flush(); err != nil {
+			h.logger.Error().Err(err).Msg("failed to persist document")
+			writeError(w, http.StatusInternalServerError, "failed to persist document", "PERSIST_ERROR")
+			return
+		}
 	}
 
 	h.logger.Info().

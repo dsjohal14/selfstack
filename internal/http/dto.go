@@ -1,5 +1,5 @@
-// Package http provides HTTP handlers and data transfer objects for the Selfstack API.
-package http
+// Package httpapi provides HTTP handlers and data transfer objects for the Selfstack API.
+package httpapi
 
 import "time"
 
