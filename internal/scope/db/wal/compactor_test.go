@@ -84,7 +84,7 @@ func TestCompactorMergesSegments(t *testing.T) {
 		t.Errorf("expected 1 record after merge, got %d", len(records))
 	}
 
-	if !tombstones["doc-2"] {
+	if _, ok := tombstones["doc-2"]; !ok {
 		t.Error("doc-2 should be tombstoned")
 	}
 

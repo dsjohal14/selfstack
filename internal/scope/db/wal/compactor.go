@@ -178,23 +178,29 @@ func (c *Compactor) compactSegments(ctx context.Context, segments []SegmentInfo)
 		}
 	}
 
-	// Merge records
-	records, tombstones, err := c.mergeRecords(segments)
+	// Merge records - returns live records and tombstone records separately
+	records, tombstoneRecords, err := c.mergeRecords(segments)
 	if err != nil {
 		rollbackToSealed()
 		return fmt.Errorf("failed to merge records: %w", err)
 	}
 
-	// Filter out tombstoned records
-	filteredRecords := make(map[string]*Record)
+	// IMPORTANT: We must preserve tombstones in the compacted output!
+	// If we drop them, deleted documents can reappear when they exist in
+	// older compacted segments (the tombstone is the only thing masking
+	// the old INSERT during recovery).
+	//
+	// Merge live records and tombstones into a single map for writing
+	allRecords := make(map[string]*Record)
 	for docID, rec := range records {
-		if !tombstones[docID] {
-			filteredRecords[docID] = rec
-		}
+		allRecords[docID] = rec
+	}
+	for docID, rec := range tombstoneRecords {
+		allRecords[docID] = rec
 	}
 
-	if len(filteredRecords) == 0 {
-		// All records were tombstoned, just archive the segments
+	if len(allRecords) == 0 {
+		// No records at all, just archive the segments
 		segmentIDs := make([]uint64, len(segments))
 		for i, seg := range segments {
 			segmentIDs[i] = seg.SegmentID
@@ -219,8 +225,8 @@ func (c *Compactor) compactSegments(ctx context.Context, segments []SegmentInfo)
 	}
 
 	// Sort records by LSN for consistent ordering
-	sortedRecords := make([]*Record, 0, len(filteredRecords))
-	for _, rec := range filteredRecords {
+	sortedRecords := make([]*Record, 0, len(allRecords))
+	for _, rec := range allRecords {
 		sortedRecords = append(sortedRecords, rec)
 	}
 	sort.Slice(sortedRecords, func(i, j int) bool {
@@ -319,11 +325,14 @@ func (c *Compactor) compactSegments(ctx context.Context, segments []SegmentInfo)
 	return nil
 }
 
-// mergeRecords reads all records from segments, returning latest version of each document
-func (c *Compactor) mergeRecords(segments []SegmentInfo) (map[string]*Record, map[string]bool, error) {
-	records := make(map[string]*Record)  // DocID -> latest record
-	tombstones := make(map[string]bool)  // DocID -> is deleted
-	recordLSN := make(map[string]uint64) // DocID -> LSN of latest record
+// mergeRecords reads all records from segments, returning:
+// - records: latest INSERT/UPDATE for each live document (not deleted)
+// - tombstones: latest DELETE record for each deleted document
+// Both must be preserved in compacted output to prevent deleted docs from reappearing.
+func (c *Compactor) mergeRecords(segments []SegmentInfo) (map[string]*Record, map[string]*Record, error) {
+	records := make(map[string]*Record)    // DocID -> latest INSERT/UPDATE record
+	tombstones := make(map[string]*Record) // DocID -> latest DELETE record
+	recordLSN := make(map[string]uint64)   // DocID -> LSN of latest record
 
 	for _, seg := range segments {
 		// Verify checksum if available
@@ -372,16 +381,19 @@ func (c *Compactor) mergeRecords(segments []SegmentInfo) (map[string]*Record, ma
 			existingLSN, exists := recordLSN[docID]
 			if !exists || rec.LSN > existingLSN {
 				recordLSN[docID] = rec.LSN
+				// Make a copy of the record
+				recCopy := *rec
+				recCopy.Payload = make([]byte, len(rec.Payload))
+				copy(recCopy.Payload, rec.Payload)
+
 				if rec.Type == RecordTypeDelete {
-					tombstones[docID] = true
+					// Latest operation is DELETE - track as tombstone
+					tombstones[docID] = &recCopy
 					delete(records, docID)
 				} else {
-					delete(tombstones, docID)
-					// Make a copy of the record
-					recCopy := *rec
-					recCopy.Payload = make([]byte, len(rec.Payload))
-					copy(recCopy.Payload, rec.Payload)
+					// Latest operation is INSERT/UPDATE - track as live record
 					records[docID] = &recCopy
+					delete(tombstones, docID)
 				}
 			}
 		}

@@ -28,3 +28,7 @@ out/
 # Claude Code
 CLAUDE.md
 .claude/
+
+# Project planning docs (local only)
+SELF_PROJECT_V2.md
+self-project.pdf
